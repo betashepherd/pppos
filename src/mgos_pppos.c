@@ -84,11 +84,14 @@ struct mgos_pppos_data {
   enum mgos_net_event net_status;
   enum mgos_net_event net_status_last_reported;
   struct mg_str ati_resp, imei, imsi, iccid, oper;
-
+  char imei_raw[32], iccid_raw[32];
   SLIST_ENTRY(mgos_pppos_data) next;
 };
 
 static SLIST_HEAD(s_pds, mgos_pppos_data) s_pds = SLIST_HEAD_INITIALIZER(s_pds);
+//raw
+char* mgos_pppos_get_imei_js(int if_instance);
+char* mgos_pppos_get_iccid_js(int if_instance);
 
 /* If we fail to communicate with the modem at the specified rate,
  * we will try these (with no flow control), in this order. */
@@ -520,6 +523,8 @@ static void mgos_pppos_dispatch_once(struct mgos_pppos_data *pd) {
       mg_strfree(&pd->imsi);
       mg_strfree(&pd->iccid);
       mg_strfree(&pd->oper);
+      memset(&pd->imei_raw, 0, sizeof(pd->imei_raw));
+      memset(&pd->iccid_raw, 0, sizeof(pd->iccid_raw));
       pd->pppcb = NULL;
       memset(&pd->pppif, 0, sizeof(pd->pppif));
       pd->cmd_error_state = PPPOS_IDLE;
@@ -955,6 +960,34 @@ struct mg_str mgos_pppos_get_iccid(int if_instance) {
     if (pd->if_instance == if_instance) return mg_strdup(pd->iccid);
   }
   return mg_mk_str_n(NULL, 0);
+}
+
+char* mgos_pppos_get_imei_js(int if_instance) {
+    struct mgos_pppos_data *pd;
+    SLIST_FOREACH(pd, &s_pds, next) {
+        if (pd->if_instance == if_instance) {
+            if (strlen(pd->imei_raw) > 0) {
+                return pd->imei_raw;
+            }
+            sprintf(pd->imei_raw, "%.*s",pd->imei.len, pd->imei.p);
+            return pd->imei_raw;
+        }
+    }
+    return NULL;
+}
+
+char* mgos_pppos_get_iccid_js(int if_instance) {
+    struct mgos_pppos_data *pd;
+    SLIST_FOREACH(pd, &s_pds, next) {
+        if (pd->if_instance == if_instance) {
+            if (strlen(pd->iccid_raw) > 0) {
+                return pd->iccid_raw;
+            }
+            sprintf(pd->iccid_raw, "%.*s",pd->iccid.len, pd->iccid.p);
+            return pd->iccid_raw;
+        }
+    }
+    return NULL;
 }
 
 bool mgos_pppos_run_cmds(int if_instance, const struct mgos_pppos_cmd *cmds) {
